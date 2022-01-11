@@ -2,12 +2,12 @@
 
 /// Gets the type of packet
 /// Does this by checking the header and comparing against known constants
-packet_t GetPacketType(uint8_t *packet, logger *log /*= NULL*/)
+packet_t GetPacketType(const uint8_t *packet, logger *log /*= NULL*/)
 {
   // Initialize return variable
   packet_t ret = END_PACKET_TYPE;
   //Get the header from the packet
-  uint8_t header = (packet[0] << 4) & (packet[1]);
+  uint16_t header = ((uint16_t)packet[0] << 8) | (packet[1]);
   //Find the header within the headerToPacketType map
   if(headerToPacketType.count(header) > 0)
   {
@@ -33,16 +33,43 @@ packet_t GetPacketType(uint8_t *packet, logger *log /*= NULL*/)
   return ret;
 }
 
-bool ParseLoginPacket(uint8_t *packet, int packetLen, std::string *email, 
-      std::string *pass, logger *log /*= NULL*/)
+bool ParseLoginPacket(const uint8_t *packet, const int packetLen, std::string &email, 
+      std::string &pass, logger *log /*= NULL*/)
 {
-  // Initialize return value
+  // Initialize return values
   bool ret = false;
+  email = "";
+  pass = "";
+  size_t startpos = -1;
+  size_t endpos = -1;
+
+  // Create a string from the characters in packet
+  std::string packetString((char *)packet, packetLen);  
+  // Find where the email token begins and ends and take the substring
+  startpos = packetString.find(loginPacketTokens[0]);
+  endpos = packetString.find(loginPacketTokens[1]);
+  if((startpos != std::string::npos) && (endpos != std::string::npos))
+  {
+    ret = true;
+    email = packetString.substr(startpos + loginPacketTokens[0].size(),
+      endpos - startpos - loginPacketTokens[1].size() - 1);
+  }
+  
+  // Repeat for password
+  if(ret)
+  {
+    startpos = endpos;
+    endpos = packetString.size();
+    pass = packetString.substr(startpos + loginPacketTokens[1].size(), endpos - 1);
+  }
+
+  std::cout << email << "\t" << pass << "\n";
 
   return ret;
 }
 
-bool ParseRegisterPacket(uint8_t *packet, int packetLen, std::string *email, logger *log /*= NULL*/)
+bool ParseRegisterPacket(const uint8_t *packet, const int packetLen, std::string &email,
+      std::string &pass, std::string &username, logger *log /*= NULL*/)
 {
   // Initialize return value
   bool ret = false;

@@ -22,6 +22,8 @@ public:
   // Public Methods
   bool OpenDatabaseFile(std::string filePath, logger *log = NULL);
   void CloseDatabaseFile();
+
+  bool TryLogin(std::string email, std::string pass);
 private:
   // Private Member variables
   sqlite3 *m_db;

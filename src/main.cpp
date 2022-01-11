@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <poll.h>
+#include <time.h>
 
 #include "network.h"
 #include "logger.h"
@@ -29,9 +30,16 @@ int main(int argc, char **argv)
   // Initialize variables
   running = 1;
   bool ret = false; // Used to check for errors in function calls
+  bool pass = true; // Used to check for errors in while loop
   int sts = -1; // Status for function calls
+  struct timespec time1, time2; // For use in nano sleep
+  timeval respondTime; // Checking time between recv a packet and responding to it
+  long elapsedSeconds, elapsedMicroseconds; // Elapsed time
+  double totalElapsed; // Total elapsed time from recieve to respond for an individual packet
+  
+  packet_buffer thisPacket; // Packet that we read from the queue
   DatabaseMgr dbMgr; // Database manager
-  databasesecrets my_dbsecrets;
+  databasesecrets my_dbsecrets; // Database secrets
   pthread_t reader_thread; // Thread that will put the udp packets into our queue
   myLog.Log(logLevel::comment, "Beginning listener, creating and binding socket\n");
   myLog.SetMutex(logMutex);
@@ -64,15 +72,60 @@ int main(int argc, char **argv)
     myLog.Log(logLevel::error, "Unable to open database file\nExiting program\n");
     running = 0;
     exit(EXIT_FAILURE);
-  } 
+  }
+
+  // Set sleep to last 250ms (1/4 second)
+  time1.tv_sec = 0;
+  time2.tv_nsec = 250000000L;
 
   do
   {
     // Check for data in the queue
-
-    // Parse it
-
-    // Perform actions based on what was recieved
+    if(!packet_queue.empty())
+    {
+      // Get the mutex for the queue then read the first item
+      pthread_mutex_lock(&queueMutex);
+      thisPacket = packet_queue.front(); // Read the value
+      packet_queue.pop(); // Remove it from the queue
+      pthread_mutex_unlock(&queueMutex);
+      
+      // Parse it
+      switch(GetPacketType(thisPacket.data, &myLog))
+      {
+        case login_t:
+        {
+          std::string emailString = "";
+          std::string passString = "";
+          pass = ParseLoginPacket(thisPacket.data, thisPacket.dataLen, 
+            emailString, passString, &myLog);
+          if(pass)
+          {
+            pass = dbMgr.TryLogin(emailString, passString);
+          }
+          break;
+        }
+        case register_packet_t:
+          break;
+        default:
+          myLog.Log(logLevel::warning, "Packet with malformed header recieved\n");
+          break;
+      }
+      // Get the time we finished with this packet
+      gettimeofday(&respondTime, 0);
+      elapsedSeconds = thisPacket.recvTime.tv_sec - respondTime.tv_sec;
+      elapsedMicroseconds = thisPacket.recvTime.tv_usec = respondTime.tv_usec;
+      totalElapsed = elapsedSeconds + elapsedMicroseconds;
+      char s[100];
+      snprintf(s, 100, "%.02f seconds elapsed from packet recieve to response\n", totalElapsed);
+      myLog.Log(logLevel::comment, std::string(s));
+      //TODO: Create a moving average of response time. Probably just do some window averageing
+      // over some number of packets
+    }
+    else
+    {
+      // The queue is empty sleep 
+      nanosleep(&time1, &time2);
+    }
 
     // Exit if appropriate
     //ret = false;
@@ -124,20 +177,28 @@ void *ReaderThreadFunction(void *ptr)
         bytesrcv = recvfrom(sockfd, tmpBuffer.data, UDP_BUFFER_LEN - 1, 
           0, (struct sockaddr *)&tmpBuffer.sender, &addrLen);
         // Make sure that we recieved an actual number of bytes
-        if(bytesrcv > 0)
+        if(bytesrcv <= 0)
         {
           myLog.Log(logLevel::warning, "recvfrom error occured, not enqueueing this packet\n");
         }
         else
         {
+          // Add a null terminator to the end of the buffer
+          tmpBuffer.data[bytesrcv] = '\0';
+          tmpBuffer.dataLen = bytesrcv;
+          // Get the recieved time for the packet
+          gettimeofday(&tmpBuffer.recvTime, 0);
           // Put the data into the queue
           pthread_mutex_lock(&queueMutex);
           packet_queue.push(tmpBuffer);
           pthread_mutex_unlock(&queueMutex);
+          // Clear the tmpBuffer data for next time
+          memset(&tmpBuffer.data, 0, UDP_BUFFER_LEN);
+          memset(&tmpBuffer.sender, 0, sizeof(struct sockaddr_storage));
+          tmpBuffer.dataLen = 0;
         }
     }
     // Keep looping until asked to stop
-    std::cout << packet_queue.size() << "\n";
   }
 
   return 0; // Required to remove no retrun warning. DO NOT DE-REFERENCE

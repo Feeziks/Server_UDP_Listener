@@ -68,3 +68,11 @@ void DatabaseMgr::CloseDatabaseFile()
 {
     sqlite3_close(m_db);
 }
+
+bool DatabaseMgr::TryLogin(std::string email, std::string pass)
+{
+  // Initialize return variable
+  bool ret = false;
+
+  return ret;
+}

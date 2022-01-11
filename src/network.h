@@ -16,8 +16,8 @@
 
 const uint8_t headerLen = 2; // Length of headers in bytes
 
-const uint8_t login_header = (uint8_t)0x01FF;
-const uint8_t register_header = (uint8_t)0x02FF;
+const uint16_t login_header = (uint16_t)0x01FF;
+const uint16_t register_header = (uint16_t)0x02FF;
 
 enum packet_t
 {
@@ -26,23 +26,24 @@ enum packet_t
   END_PACKET_TYPE
 };
 
-const std::map<packet_t, uint8_t> packetTypeToHeader
+const std::map<packet_t, uint16_t> packetTypeToHeader
   {
     {login_t, login_header},
     {register_packet_t, register_header}
   };
-const std::map<uint8_t, packet_t> headerToPacketType
+const std::map<uint16_t, packet_t> headerToPacketType
   {
     {login_header, login_t},
     {register_header, register_packet_t}
   };
 
-packet_t GetPacketType(uint8_t *packet, logger *log = NULL);
+packet_t GetPacketType(const uint8_t *packet, logger *log = NULL);
 
-bool ParseLoginPacket(uint8_t *packet, int packetLen, std::string *email, 
-        std::string *pass, logger *log = NULL );
+bool ParseLoginPacket(const uint8_t *packet, const int packetLen, std::string &email, 
+        std::string &pass, logger *log = NULL );
 
-bool ParseRegisterPacket(uint8_t *packet, int packetLen, std::string *email, logger *log = NULL );
+bool ParseRegisterPacket(const uint8_t *packet, const int packetLen, 
+        std::string &email, std::string &pass, std::string &username, logger *log = NULL );
 
 
 bool CreateAndBindSocket(int &sockfd, logger *log = NULL);
