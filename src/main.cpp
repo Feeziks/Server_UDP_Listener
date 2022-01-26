@@ -74,9 +74,9 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  // Set sleep to last 250ms (1/4 second)
+  // Set sleep to last 25ms (1/40 second)
   time1.tv_sec = 0;
-  time2.tv_nsec = 250000000L;
+  time2.tv_nsec = 25000000L;
 
   do
   {
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
       thisPacket = packet_queue.front(); // Read the value
       packet_queue.pop(); // Remove it from the queue
       pthread_mutex_unlock(&queueMutex);
-      
+      // TODO: decrypt recieved data
       // Parse it
       switch(GetPacketType(thisPacket.data, &myLog))
       {

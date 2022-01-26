@@ -4,12 +4,14 @@ CC = g++
 
 #Compiler Flags:
 #-Wall turn on all warnings
-#-Werror turn all warnings into errors - write some clean code lads
 #-std=c++17 use c++ 17 standard
-CFLAGS = -Wall -Werror -std=c++17
+CFLAGS = -Wall -std=c++17
 
 #Linker options
-LFLAGS = -lsqlite3 -lpthread #Link sqlite3 and pthread libraries
+#link sqlite3 lib
+#link pthread
+#link argon2 from ../libs
+LFLAGS = -lsqlite3 -lpthread -L../libs -largon2 
 
 #Build Target
 TARGET = listener
